@@ -143,6 +143,8 @@ struct hid_device_ {
 
 	hidapi_error_ctx error;
 	wchar_t *last_read_error_str;
+
+	unsigned long write_timeout_ms;
 };
 
 static struct hid_api_version api_version = {
@@ -165,6 +167,7 @@ static hid_device *new_hid_device(void)
 		return NULL;
 
 	dev->blocking = 1;
+	dev->write_timeout_ms = 1000;
 
 	hidapi_thread_state_init(&dev->thread_state);
 
@@ -1577,6 +1580,11 @@ err:
 	return NULL;
 }
 
+void HID_API_EXPORT hid_libusb_set_write_timeout(hid_device *dev, unsigned long timeout)
+{
+	dev->write_timeout_ms = timeout;
+}
+
 
 int HID_API_EXPORT hid_write(hid_device *dev, const unsigned char *data, size_t length)
 {
@@ -1610,7 +1618,7 @@ int HID_API_EXPORT hid_write(hid_device *dev, const unsigned char *data, size_t 
 		dev->output_endpoint,
 		(unsigned char*)data,
 		(int)length,
-		&actual_length, 1000);
+		&actual_length, dev->write_timeout_ms);
 
 	if (res < 0) {
 		register_libusb_error(&dev->error, res, "hid_write");
@@ -1795,7 +1803,7 @@ int HID_API_EXPORT hid_send_feature_report(hid_device *dev, const unsigned char 
 		(3/*HID feature*/ << 8) | report_number,
 		dev->interface,
 		(unsigned char *)data, length,
-		1000/*timeout millis*/);
+		dev->write_timeout_ms);
 
 	if (res < 0) {
 		register_libusb_error(&dev->error, res, "hid_send_feature_report");
@@ -1877,7 +1885,7 @@ int HID_API_EXPORT hid_send_output_report(hid_device *dev, const unsigned char *
 		(2/*HID output*/ << 8) | report_number,
 		dev->interface,
 		(unsigned char *)data, length,
-		1000/*timeout millis*/);
+		dev->write_timeout_ms);
 
 	if (res < 0) {
 		register_libusb_error(&dev->error, res, "hid_send_output_report");
